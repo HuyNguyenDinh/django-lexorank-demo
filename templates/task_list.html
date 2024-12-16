@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task List by Boards</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1, h2 {
+            color: #333;
+        }
+
+        .board {
+            margin-bottom: 30px;
+        }
+
+        .board ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .board li {
+            margin: 5px 0;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: grab;
+            transition: background-color 0.2s ease;
+        }
+
+        .board li.dragging {
+            opacity: 0.5;
+            background-color: #ddd;
+        }
+
+        .add-task-form, .add-board-form {
+            margin-bottom: 20px;
+        }
+
+        .add-task-form select,
+        .add-task-form input,
+        .add-task-form button,
+        .add-board-form input,
+        .add-board-form button {
+            margin-right: 10px;
+            padding: 5px 10px;
+        }
+
+        .add-task-form input,
+        .add-board-form input {
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Task List by Boards</h1>
+
+    <!-- Form to Add a New Board -->
+    <form method="post" id="add-board-form" class="add-board-form">
+        {% csrf_token %}
+        <input type="text" name="name" placeholder="Enter board name" required>
+        <button type="submit" formaction="board-api/">Add Board</button>
+    </form>
+
+    <!-- Form to Add a Task -->
+    <form method="post" id="add-task-form" class="add-task-form">
+        {% csrf_token %}
+        <select name="board_id" required>
+            {% for board in boards %}
+                <option value="{{ board.id }}">{{ board.name }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="name" placeholder="Task name" required>
+        <button type="submit">Add Task</button>
+    </form>
+
+    <!-- Boards and Tasks -->
+    <div>
+        {% for board in boards %}
+            <div class="board">
+                <h2>{{ board.name }}</h2>
+                <ul id="board-{{ board.id }}" class="task-list">
+                    {% for task in board.tasks.all %}
+                        <li class="draggable" data-id="{{ task.id }}" draggable="true">
+                            {{ task.name }} (Rank: {{ task.rank }})
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% empty %}
+            <p>No boards exist. Please add a board first.</p>
+        {% endfor %}
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const lists = document.querySelectorAll(".task-list");
+
+            // Drag-and-drop logic
+            lists.forEach((list) => {
+                list.addEventListener("dragstart", (e) => {
+                    if (e.target.classList.contains("draggable")) {
+                        e.target.classList.add("dragging");
+                    }
+                });
+
+                list.addEventListener("dragend", (e) => {
+                    if (e.target.classList.contains("draggable")) {
+                        e.target.classList.remove("dragging");
+                    }
+                });
+
+                list.addEventListener("dragover", (e) => {
+                    e.preventDefault();
+                    const afterElement = getDragAfterElement(list, e.clientY);
+                    const dragging = document.querySelector(".dragging");
+                    if (afterElement == null) {
+                        list.appendChild(dragging);
+                    } else {
+                        list.insertBefore(dragging, afterElement);
+                    }
+                });
+
+                list.addEventListener("drop", () => {
+                    const dragging = document.querySelector(".dragging");
+                    const boardId = list.id.split("-")[1];
+                    const taskIds = Array.from(list.children).map((task) => task.dataset.id);
+
+                    const currentId = dragging.dataset.id;
+                    const currentIndex = taskIds.indexOf(currentId);
+                    const previousId = currentIndex > 0 ? taskIds[currentIndex - 1] : null;
+                    const nextId = currentIndex < taskIds.length - 1 ? taskIds[currentIndex + 1] : null;
+
+                    // Send AJAX request to reorder the tasks
+                    fetch("", {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": "{{ csrf_token }}",
+                        },
+                        body: JSON.stringify({
+                            board_id: boardId,
+                            current_id: currentId,
+                            previous_id: previousId,
+                            next_id: nextId,
+                        }),
+                    }).then((response) => response.json())
+                      .then((data) => console.log(data));
+                });
+            });
+
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll(".draggable:not(.dragging)")];
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+        });
+    </script>
+</body>
+</html>
