@@ -101,12 +101,6 @@
         <!-- Add Device to Sort -->
         <form id="add-device-sort-form">
             <h2>Add Device to Sort</h2>
-            <select id="sort-room" required>
-                <option value="" disabled selected>Select Room</option>
-                {% for room in rooms %}
-                    <option value="{{ room.id }}">{{ room.name }}</option>
-                {% endfor %}
-            </select>
             <select id="sort-user" required>
                 <option value="" disabled selected>Select User</option>
                 {% for user in users %}
@@ -126,20 +120,22 @@
     <!-- Rooms and Devices -->
     <div id="rooms-container">
         {% for room in rooms %}
-            <div class="room">
-                <h2>{{ room.name }}</h2>
-                <ul id="room-{{ room.id }}" class="device-list">
-                    {% for sort in device_sorts %}
-                        {% if sort.room.id == room.id %}
-                            <li class="draggable" data-id="{{ sort.id }}" draggable="true">
-                                Device: {{ sort.device.name }} (User: {{ sort.user.username }})
-                            </li>
-                        {% endif %}
-                    {% endfor %}
-                </ul>
-            </div>
+            {% for user in users %}
+                <div class="room">
+                    <h2>Room: {{ room.name }} | User: {{ user.username }}</h2>
+                    <ul id="room-{{ room.id }}-user-{{ user.id }}" class="device-list" data-room="{{ room.id }}" data-user="{{ user.id }}">
+                        {% for sort in device_sorts %}
+                            {% if sort.room.id == room.id and sort.user.id == user.id %}
+                                <li class="draggable" data-id="{{ sort.id }}" draggable="true">
+                                    Device: {{ sort.device.name }}
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endfor %}
         {% empty %}
-            <p>No rooms exist. Please add a room first.</p>
+            <p>No rooms or users exist. Please add a room and user first.</p>
         {% endfor %}
     </div>
 
@@ -270,16 +266,15 @@
             // Add Device to Sort
             document.getElementById("add-device-sort-form").addEventListener("submit", async (e) => {
                 e.preventDefault();
-                const room = document.getElementById("sort-room").value;
                 const user = document.getElementById("sort-user").value;
                 const device = document.getElementById("sort-device").value;
-                const response = await fetch("/api/device-sorts/", {
+                const response = await fetch("/iot/api/device-sorts/", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         "X-CSRFToken": "{{ csrf_token }}",
                     },
-                    body: JSON.stringify({ room, user, device }),
+                    body: JSON.stringify({ user, device }),
                 });
                 if (response.ok) location.reload(); // Reload to show new sort
             });

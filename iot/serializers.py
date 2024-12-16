@@ -26,4 +26,8 @@ class DeviceSortSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DeviceSort
-        fields = '__all__'
+        fields = ['user', 'device']
+
+    def create(self, validated_data):
+        validated_data["room_id"] = validated_data["device"].room_id        
+        return super().create(validated_data)
