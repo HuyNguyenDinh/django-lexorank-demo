@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Sorting by Rooms</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1, h2 {
+            color: #333;
+        }
+
+        .room {
+            margin-bottom: 30px;
+        }
+
+        .room ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .room li {
+            margin: 5px 0;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: grab;
+            transition: background-color 0.2s ease;
+        }
+
+        .room li.dragging {
+            opacity: 0.5;
+            background-color: #ddd;
+        }
+
+        form {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        form input, form select, form button {
+            margin: 5px 0;
+            padding: 10px;
+            width: 100%;
+        }
+
+        form button {
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+
+        form button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Device Sorting by Rooms</h1>
+
+    <!-- Forms to Add Room, User, Device, and Device to Sort -->
+    <div>
+        <!-- Add Room -->
+        <form id="add-room-form">
+            <h2>Add Room</h2>
+            <input type="text" id="room-name" placeholder="Room Name" required>
+            <button type="submit">Add Room</button>
+        </form>
+
+        <!-- Add User -->
+        <form id="add-user-form">
+            <h2>Add User</h2>
+            <input type="text" id="user-username" placeholder="Username" required>
+            <input type="email" id="user-email" placeholder="Email" required>
+            <button type="submit">Add User</button>
+        </form>
+
+        <!-- Add Device -->
+        <form id="add-device-form">
+            <h2>Add Device</h2>
+            <input type="text" id="device-name" placeholder="Device Name" required>
+            <select id="device-room" required>
+                <option value="" disabled selected>Select Room</option>
+                {% for room in rooms %}
+                    <option value="{{ room.id }}">{{ room.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Add Device</button>
+        </form>
+
+        <!-- Add Device to Sort -->
+        <form id="add-device-sort-form">
+            <h2>Add Device to Sort</h2>
+            <select id="sort-room" required>
+                <option value="" disabled selected>Select Room</option>
+                {% for room in rooms %}
+                    <option value="{{ room.id }}">{{ room.name }}</option>
+                {% endfor %}
+            </select>
+            <select id="sort-user" required>
+                <option value="" disabled selected>Select User</option>
+                {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.username }}</option>
+                {% endfor %}
+            </select>
+            <select id="sort-device" required>
+                <option value="" disabled selected>Select Device</option>
+                {% for device in devices %}
+                    <option value="{{ device.id }}">{{ device.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Add Device to Sort</button>
+        </form>
+    </div>
+
+    <!-- Rooms and Devices -->
+    <div id="rooms-container">
+        {% for room in rooms %}
+            <div class="room">
+                <h2>{{ room.name }}</h2>
+                <ul id="room-{{ room.id }}" class="device-list">
+                    {% for sort in device_sorts %}
+                        {% if sort.room.id == room.id %}
+                            <li class="draggable" data-id="{{ sort.id }}" draggable="true">
+                                Device: {{ sort.device.name }} (User: {{ sort.user.username }})
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+        {% empty %}
+            <p>No rooms exist. Please add a room first.</p>
+        {% endfor %}
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // Helper to add drag-and-drop functionality
+            const applyDragAndDropListeners = () => {
+                const lists = document.querySelectorAll(".device-list");
+
+                lists.forEach((list) => {
+                    list.addEventListener("dragstart", (e) => {
+                        if (e.target.classList.contains("draggable")) {
+                            e.target.classList.add("dragging");
+                        }
+                    });
+
+                    list.addEventListener("dragend", (e) => {
+                        if (e.target.classList.contains("draggable")) {
+                            e.target.classList.remove("dragging");
+                        }
+                    });
+
+                    list.addEventListener("dragover", (e) => {
+                        e.preventDefault();
+                        const afterElement = getDragAfterElement(list, e.clientY);
+                        const dragging = document.querySelector(".dragging");
+                        if (afterElement == null) {
+                            list.appendChild(dragging);
+                        } else {
+                            list.insertBefore(dragging, afterElement);
+                        }
+                    });
+
+                    list.addEventListener("drop", () => {
+                        const dragging = document.querySelector(".dragging");
+                        const roomId = list.id.split("-")[1];
+                        const tasks = Array.from(list.children);
+                        const currentId = dragging.dataset.id;
+                        const currentIndex = tasks.findIndex((task) => task.dataset.id === currentId);
+                        const previousId = currentIndex > 0 ? tasks[currentIndex - 1].dataset.id : null;
+                        const nextId = currentIndex < tasks.length - 1 ? tasks[currentIndex + 1].dataset.id : null;
+
+                        const payload = {
+                            current: currentId,
+                            previous: previousId,
+                            next: nextId,
+                        };
+
+                        fetch("/iot/update-device-sort-order/", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-CSRFToken": "{{ csrf_token }}",
+                            },
+                            body: JSON.stringify(payload),
+                        })
+                            .then((response) => response.json())
+                            .then((data) => console.log(data))
+                            .catch((error) => console.error("Error:", error));
+                    });
+                });
+            };
+
+            // Helper to get the drag after element
+            const getDragAfterElement = (container, y) => {
+                const draggableElements = [...container.querySelectorAll(".draggable:not(.dragging)")];
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            };
+
+            // Reapply drag-and-drop listeners after DOM changes
+            applyDragAndDropListeners();
+
+            // Add Room
+            document.getElementById("add-room-form").addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const name = document.getElementById("room-name").value;
+                const response = await fetch("/api/rooms/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token }}",
+                    },
+                    body: JSON.stringify({ name }),
+                });
+                if (response.ok) location.reload(); // Reload to show new room
+            });
+
+            // Add User
+            document.getElementById("add-user-form").addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const username = document.getElementById("user-username").value;
+                const email = document.getElementById("user-email").value;
+                const response = await fetch("/api/users/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token }}",
+                    },
+                    body: JSON.stringify({ username, email }),
+                });
+                if (response.ok) location.reload(); // Reload to show new user
+            });
+
+            // Add Device
+            document.getElementById("add-device-form").addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const name = document.getElementById("device-name").value;
+                const room = document.getElementById("device-room").value;
+                const response = await fetch("/api/devices/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token }}",
+                    },
+                    body: JSON.stringify({ name, room }),
+                });
+                if (response.ok) location.reload(); // Reload to show new device
+            });
+
+            // Add Device to Sort
+            document.getElementById("add-device-sort-form").addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const room = document.getElementById("sort-room").value;
+                const user = document.getElementById("sort-user").value;
+                const device = document.getElementById("sort-device").value;
+                const response = await fetch("/api/device-sorts/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token }}",
+                    },
+                    body: JSON.stringify({ room, user, device }),
+                });
+                if (response.ok) location.reload(); // Reload to show new sort
+            });
+        });
+    </script>
+</body>
+</html>

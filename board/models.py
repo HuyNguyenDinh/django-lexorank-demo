@@ -12,7 +12,7 @@ class Board(RankedModel):
 class Task(RankedModel):
     name = models.CharField(max_length=255)
     board = models.ForeignKey("Board", on_delete=models.CASCADE, related_name="tasks")
-    order_with_respect_to = "board"
+    order_with_respect_to = ["board"]
 
     def __str__(self):
         return self.name
