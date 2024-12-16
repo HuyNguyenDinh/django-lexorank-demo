@@ -1,0 +1,4 @@
+asgiref==3.8.1
+Django==5.1.4
+django-lexorank @ git+https://github.com/HuyNguyenDinh/django-lexorank.git@7791a01a9818cf564bced64b9fead85daea4fc5a
+sqlparse==0.5.3
