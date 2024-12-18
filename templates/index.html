@@ -220,7 +220,7 @@
             document.getElementById("add-room-form").addEventListener("submit", async (e) => {
                 e.preventDefault();
                 const name = document.getElementById("room-name").value;
-                const response = await fetch("/api/rooms/", {
+                const response = await fetch("/iot/api/rooms/", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -236,7 +236,7 @@
                 e.preventDefault();
                 const username = document.getElementById("user-username").value;
                 const email = document.getElementById("user-email").value;
-                const response = await fetch("/api/users/", {
+                const response = await fetch("/iot/api/users/", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -252,7 +252,7 @@
                 e.preventDefault();
                 const name = document.getElementById("device-name").value;
                 const room = document.getElementById("device-room").value;
-                const response = await fetch("/api/devices/", {
+                const response = await fetch("/iot/api/devices/", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
